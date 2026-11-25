@@ -23,12 +23,28 @@ def fail(message):
     return 1
 
 
+def validate(text):
+    """Gate for one line of entry text.
+
+    Returns an error message string on failure, or None on success.
+    Checks, in order: length 1..200, not whitespace only, and no
+    trailing newline (the entry is a single line with no extra
+    line at the end).
+    """
+    if not 1 <= len(text) <= 200:
+        return "length %d outside 1..200" % len(text)
+    if not text.strip():
+        return "text is whitespace only"
+    if text.endswith("\n"):
+        return "text ends with a trailing newline"
+    return None
+
+
 def main():
     # Gate, checked explicitly (not by assert alone) before writing.
-    if not 1 <= len(ENTRY) <= 200:
-        return fail("ENTRY length %d outside 1..200" % len(ENTRY))
-    if not ENTRY.strip():
-        return fail("ENTRY is whitespace only")
+    error = validate(ENTRY)
+    if error is not None:
+        return fail("ENTRY failed gate: " + error)
 
     expected = ENTRY.encode("utf-8")
     out_path = os.path.join(OUTPUT_DIR, "entry.txt")
@@ -50,14 +66,15 @@ def main():
 
     if actual != expected:
         return fail("written bytes do not match ENTRY")
+    if actual.endswith(b"\n"):
+        return fail("output ends with a trailing newline (last byte is \\n)")
     try:
         text = actual.decode("utf-8")
     except UnicodeDecodeError as exc:
         return fail("output is not valid UTF-8: %s" % exc)
-    if not 1 <= len(text) <= 200:
-        return fail("output length %d outside 1..200" % len(text))
-    if not text.strip():
-        return fail("output is whitespace only")
+    error = validate(text)
+    if error is not None:
+        return fail("output failed gate: " + error)
     if os.stat(out_path).st_mode & 0o777 != 0o644:
         return fail("output mode is not 0644")
 
